@@ -1,6 +1,28 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 block_cipher = None
+
+# Collect all PySide6 submodules and data files
+pyside6_submodules = collect_submodules('PySide6')
+pyside6_datas = collect_data_files('PySide6')
+
+hidden_imports = [
+    'tinydb',
+    'pandas',
+    'numpy',
+    'uvicorn',
+    'fastapi',
+    'sqlalchemy',
+    'alembic',
+    'pydantic_settings',
+    'loguru',
+    'bcrypt',
+    'jose',
+    'passlib',
+    'passlib.handlers.bcrypt',
+] + pyside6_submodules
 
 a = Analysis(
     ['main.py'],
@@ -15,21 +37,8 @@ a = Analysis(
         ('assets', 'assets'),
         ('config', 'config'),
         ('templates', 'templates'),
-    ],
-    hiddenimports=[
-        'tinydb',
-        'pandas',
-        'numpy',
-        'matplotlib',
-        'PySide6.QtCore',
-        'PySide6.QtGui',
-        'PySide6.QtWidgets',
-        'uvicorn',
-        'fastapi',
-        'sqlalchemy',
-        'alembic',
-        'pydantic_settings',
-    ],
+    ] + pyside6_datas,
+    hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -44,26 +53,30 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='FinovateAudit',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=False,
-    # Using --onedir for better compatibility and reduced false positives from antivirus.
-    # If a single file executable is desired, change this to True and ensure the build scripts
-    # or workflows use the --onefile flag with pyinstaller, and remove the --onedir flag.
-
+    console=True,  # Enable console for debugging
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets/icon.ico'],
+    icon=['assets/icon.ico'] if os.path.exists('assets/icon.ico') else None,
+)
+
+coll = COLLECT(
+    exe,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='FinovateAudit',
 )

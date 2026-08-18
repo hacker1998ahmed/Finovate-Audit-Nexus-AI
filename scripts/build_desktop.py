@@ -24,13 +24,27 @@ def build():
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
         print("[OK] PyInstaller installed")
 
+    # Determine which requirements file to use
+    req_file = "requirements.txt"
+    if sys.platform == "win32":
+        if os.path.exists("requirements-windows.txt"):
+            req_file = "requirements-windows.txt"
+    
     # Install dependencies first
-    print("[INFO] Installing dependencies...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "--quiet"])
-    print("[OK] Dependencies installed")
+    print(f"[INFO] Installing dependencies from {req_file}...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", req_file])
+        print("[OK] Dependencies installed")
+    except subprocess.CalledProcessError as e:
+        print(f"[WARN] Dependency installation had some issues: {e}")
+        print("[INFO] Continuing with build anyway...")
 
-    # Build using the optimized spec file (supports both onedir/onefile)
+    # Build using the optimized spec file
     spec_file = "finovate_audit.spec"
+    if not os.path.exists(spec_file):
+        print(f"[ERROR] Spec file {spec_file} not found!")
+        sys.exit(1)
+        
     cmd = ["pyinstaller", "--clean", "--noconfirm", spec_file]
     
     print(f"[BUILD] {' '.join(cmd)}")
@@ -41,7 +55,7 @@ def build():
         print()
         print("=" * 60)
         print("[SUCCESS] Build Complete!")
-        print(f"[OUTPUT] dist/FinovateAudit/")
+        print(f"[OUTPUT] dist/")
         print("=" * 60)
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Build Failed: {e}")
