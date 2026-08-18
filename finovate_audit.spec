@@ -1,30 +1,64 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
 import sys
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files, copy_metadata
+from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
-# 1. Read requirements-windows.txt to ensure everything is included
-# قراءة كافة التبعيات لضمان حزمها جميعاً
-def get_requirements():
-    reqs = []
-    if os.path.exists('requirements-windows.txt'):
-        with open('requirements-windows.txt', 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    # Extract package name (handle versions and extras)
-                    pkg = line.split('==')[0].split('>=')[0].split('[')[0].strip()
-                    if pkg:
-                        reqs.append(pkg)
-    return list(set(reqs))
+# List of all critical packages to be fully collected
+# قائمة بكافة الحزم الحرجة التي يجب جمعها بالكامل
+packages_to_collect = [
+    'PySide6',
+    'requests',
+    'uvicorn',
+    'fastapi',
+    'sqlalchemy',
+    'pandas',
+    'loguru',
+    'bcrypt',
+    'jose',
+    'passlib',
+    'cryptography',
+    'pydantic',
+    'pydantic_core',
+    'typing_extensions',
+    'annotated_types',
+    'h11',
+    'sniffio',
+    'anyio',
+    'starlette',
+    'certifi',
+    'idna',
+    'urllib3',
+    'charset_normalizer'
+]
 
-required_packages = get_requirements()
+hidden_imports = []
+datas = [
+    ('frontend', 'frontend'),
+    ('database', 'database'),
+    ('agents', 'agents'),
+    ('backend', 'backend'),
+    ('connectors', 'connectors'),
+    ('assets', 'assets'),
+    ('config', 'config'),
+    ('templates', 'templates'),
+]
+binaries = []
 
-# 2. Build a comprehensive list of hidden imports
-# قائمة شاملة للاستدعاءات المخفية
-hidden_imports = [
+# Use collect_all for each package to ensure everything is included
+# استخدام collect_all لكل حزمة لضمان تضمين كل شيء
+for pkg in packages_to_collect:
+    try:
+        tmp_datas, tmp_binaries, tmp_hiddenimports = collect_all(pkg)
+        datas += tmp_datas
+        binaries += tmp_binaries
+        hidden_imports += tmp_hiddenimports
+    except Exception as e:
+        print(f"[WARN] Failed to collect all for {pkg}: {e}")
+
+# Add manual hidden imports just in case
+hidden_imports += [
     'uvicorn.logging',
     'uvicorn.loops',
     'uvicorn.loops.auto',
@@ -36,39 +70,16 @@ hidden_imports = [
     'uvicorn.lifespan',
     'uvicorn.lifespan.on',
     'uvicorn.lifespan.off',
-    'email.mime.multipart',
-    'email.mime.text',
+    'passlib.handlers.bcrypt',
 ]
 
-for pkg in required_packages:
-    hidden_imports.append(pkg)
-    # Collect submodules for major frameworks
-    if pkg.lower() in ['pyside6', 'fastapi', 'uvicorn', 'sqlalchemy', 'pandas', 'requests', 'jose', 'passlib', 'bcrypt']:
-        hidden_imports += collect_submodules(pkg)
-
-datas = [
-    ('frontend', 'frontend'),
-    ('database', 'database'),
-    ('agents', 'agents'),
-    ('backend', 'backend'),
-    ('connectors', 'connectors'),
-    ('assets', 'assets'),
-    ('config', 'config'),
-    ('templates', 'templates'),
-]
-
-# 3. Collect data files and metadata for critical packages
-for pkg in ['fastapi', 'uvicorn', 'PySide6', 'pandas', 'reportlab']:
-    try:
-        datas += collect_data_files(pkg)
-        datas += copy_metadata(pkg)
-    except:
-        pass
+# Remove duplicates
+hidden_imports = list(set(hidden_imports))
 
 a = Analysis(
     ['main.py'],
     pathex=[os.getcwd()],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],

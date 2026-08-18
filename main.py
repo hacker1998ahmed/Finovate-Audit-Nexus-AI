@@ -107,6 +107,9 @@ def start_desktop_app():
 
 def main():
     logger.info("Application Starting...")
+    logger.info(f"Python Version: {sys.version}")
+    logger.info(f"Current Directory: {os.getcwd()}")
+    logger.info(f"System Path: {sys.path}")
     
     # Check for CLI arguments
     if len(sys.argv) > 1:
