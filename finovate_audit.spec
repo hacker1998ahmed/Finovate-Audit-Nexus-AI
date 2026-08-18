@@ -5,36 +5,46 @@ from PyInstaller.utils.hooks import collect_submodules, collect_data_files, copy
 
 block_cipher = None
 
-# Explicitly collect everything for PySide6
+# 1. Read requirements-windows.txt to ensure everything is included
+# قراءة كافة التبعيات لضمان حزمها جميعاً
+def get_requirements():
+    reqs = []
+    if os.path.exists('requirements-windows.txt'):
+        with open('requirements-windows.txt', 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # Extract package name (handle versions and extras)
+                    pkg = line.split('==')[0].split('>=')[0].split('[')[0].strip()
+                    if pkg:
+                        reqs.append(pkg)
+    return list(set(reqs))
+
+required_packages = get_requirements()
+
+# 2. Build a comprehensive list of hidden imports
+# قائمة شاملة للاستدعاءات المخفية
 hidden_imports = [
-    'PySide6',
-    'PySide6.QtCore',
-    'PySide6.QtGui',
-    'PySide6.QtWidgets',
-    'PySide6.QtNetwork',
-    'PySide6.QtSql',
-    'uvicorn',
+    'uvicorn.logging',
+    'uvicorn.loops',
+    'uvicorn.loops.auto',
     'uvicorn.protocols',
     'uvicorn.protocols.http',
-    'uvicorn.protocols.http.h11_impl',
+    'uvicorn.protocols.http.auto',
     'uvicorn.protocols.websockets',
-    'uvicorn.protocols.websockets.websockets_impl',
+    'uvicorn.protocols.websockets.auto',
     'uvicorn.lifespan',
     'uvicorn.lifespan.on',
-    'fastapi',
-    'sqlalchemy',
-    'pandas',
-    'loguru',
-    'bcrypt',
-    'jose',
-    'passlib',
-    'passlib.handlers.bcrypt',
+    'uvicorn.lifespan.off',
+    'email.mime.multipart',
+    'email.mime.text',
 ]
 
-# Add all submodules for critical packages
-hidden_imports += collect_submodules('PySide6')
-hidden_imports += collect_submodules('uvicorn')
-hidden_imports += collect_submodules('fastapi')
+for pkg in required_packages:
+    hidden_imports.append(pkg)
+    # Collect submodules for major frameworks
+    if pkg.lower() in ['pyside6', 'fastapi', 'uvicorn', 'sqlalchemy', 'pandas', 'requests', 'jose', 'passlib', 'bcrypt']:
+        hidden_imports += collect_submodules(pkg)
 
 datas = [
     ('frontend', 'frontend'),
@@ -47,10 +57,13 @@ datas = [
     ('templates', 'templates'),
 ]
 
-# Add metadata for packages that might need it
-datas += copy_metadata('fastapi')
-datas += copy_metadata('uvicorn')
-datas += collect_data_files('PySide6')
+# 3. Collect data files and metadata for critical packages
+for pkg in ['fastapi', 'uvicorn', 'PySide6', 'pandas', 'reportlab']:
+    try:
+        datas += collect_data_files(pkg)
+        datas += copy_metadata(pkg)
+    except:
+        pass
 
 a = Analysis(
     ['main.py'],
