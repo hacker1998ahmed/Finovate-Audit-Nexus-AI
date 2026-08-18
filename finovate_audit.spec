@@ -1,43 +1,62 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+import sys
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, copy_metadata
 
 block_cipher = None
 
-# Collect all PySide6 submodules and data files
-pyside6_submodules = collect_submodules('PySide6')
-pyside6_datas = collect_data_files('PySide6')
-
+# Explicitly collect everything for PySide6
 hidden_imports = [
-    'tinydb',
-    'pandas',
-    'numpy',
+    'PySide6',
+    'PySide6.QtCore',
+    'PySide6.QtGui',
+    'PySide6.QtWidgets',
+    'PySide6.QtNetwork',
+    'PySide6.QtSql',
     'uvicorn',
+    'uvicorn.protocols',
+    'uvicorn.protocols.http',
+    'uvicorn.protocols.http.h11_impl',
+    'uvicorn.protocols.websockets',
+    'uvicorn.protocols.websockets.websockets_impl',
+    'uvicorn.lifespan',
+    'uvicorn.lifespan.on',
     'fastapi',
     'sqlalchemy',
-    'alembic',
-    'pydantic_settings',
+    'pandas',
     'loguru',
     'bcrypt',
     'jose',
     'passlib',
     'passlib.handlers.bcrypt',
-] + pyside6_submodules
+]
+
+# Add all submodules for critical packages
+hidden_imports += collect_submodules('PySide6')
+hidden_imports += collect_submodules('uvicorn')
+hidden_imports += collect_submodules('fastapi')
+
+datas = [
+    ('frontend', 'frontend'),
+    ('database', 'database'),
+    ('agents', 'agents'),
+    ('backend', 'backend'),
+    ('connectors', 'connectors'),
+    ('assets', 'assets'),
+    ('config', 'config'),
+    ('templates', 'templates'),
+]
+
+# Add metadata for packages that might need it
+datas += copy_metadata('fastapi')
+datas += copy_metadata('uvicorn')
+datas += collect_data_files('PySide6')
 
 a = Analysis(
     ['main.py'],
-    pathex=[],
+    pathex=[os.getcwd()],
     binaries=[],
-    datas=[
-        ('frontend', 'frontend'),
-        ('database', 'database'),
-        ('agents', 'agents'),
-        ('backend', 'backend'),
-        ('connectors', 'connectors'),
-        ('assets', 'assets'),
-        ('config', 'config'),
-        ('templates', 'templates'),
-    ] + pyside6_datas,
+    datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
@@ -60,7 +79,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,  # Enable console for debugging
+    console=True, # Keep console for debugging
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -71,7 +90,6 @@ exe = EXE(
 
 coll = COLLECT(
     exe,
-    a.scripts,
     a.binaries,
     a.zipfiles,
     a.datas,

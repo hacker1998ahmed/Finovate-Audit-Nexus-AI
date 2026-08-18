@@ -1,61 +1,72 @@
 """
-Desktop Build Script - Packaging the application for Windows/macOS/Linux
-سيناريو بناء تطبيق سطح المكتب - تغليف التطبيق لأنظمة التشغيل المختلفة
+Desktop Build Script - Packaging the application for Windows
+سيناريو بناء تطبيق سطح المكتب - تغليف التطبيق لنظام ويندوز
 """
 import os
 import subprocess
 import sys
+import importlib.util
+
+def install_and_verify(package_name, install_name=None):
+    if install_name is None:
+        install_name = package_name
+    
+    print(f"[INFO] Checking {package_name}...")
+    spec = importlib.util.find_spec(package_name)
+    if spec is None:
+        print(f"[WARN] {package_name} missing, installing {install_name}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", install_name])
+        print(f"[OK] {package_name} installed")
+    else:
+        print(f"[OK] {package_name} is ready at {spec.origin}")
 
 def build():
     print("=" * 60)
-    print("Finovate Audit Nexus AI - Desktop Build")
+    print("Finovate Audit Nexus AI - Robust Desktop Build")
     print("=" * 60)
     
-    # Ensure we are in project root
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(project_root)
     
-    # Check for PyInstaller
-    try:
-        import PyInstaller
-        print(f"[OK] PyInstaller {PyInstaller.__version__}")
-    except ImportError:
-        print("[INFO] Installing PyInstaller...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
-        print("[OK] PyInstaller installed")
-
-    # Determine which requirements file to use
-    req_file = "requirements.txt"
-    if sys.platform == "win32":
-        if os.path.exists("requirements-windows.txt"):
-            req_file = "requirements-windows.txt"
+    # 1. Ensure core build tools
+    install_and_verify("PyInstaller", "pyinstaller")
     
-    # Install dependencies first
-    print(f"[INFO] Installing dependencies from {req_file}...")
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", req_file])
-        print("[OK] Dependencies installed")
-    except subprocess.CalledProcessError as e:
-        print(f"[WARN] Dependency installation had some issues: {e}")
-        print("[INFO] Continuing with build anyway...")
+    # 2. Force install critical dependencies for the build environment
+    print("[INFO] Installing critical dependencies for packaging...")
+    critical_deps = [
+        "PySide6==6.6.1",
+        "PySide6-Essentials==6.6.1",
+        "shiboken6==6.6.1",
+        "uvicorn[standard]",
+        "fastapi",
+        "sqlalchemy",
+        "pandas",
+        "loguru",
+        "bcrypt",
+        "python-jose[cryptography]",
+        "passlib[bcrypt]"
+    ]
+    
+    for dep in critical_deps:
+        try:
+            pkg_name = dep.split('==')[0].split('[')[0]
+            install_and_verify(pkg_name, dep)
+        except Exception as e:
+            print(f"[ERROR] Failed to install {dep}: {e}")
 
-    # Build using the optimized spec file
+    # 3. Verify PySide6 location for the spec file
+    import PySide6
+    print(f"[DEBUG] PySide6 location: {os.path.dirname(PySide6.__file__)}")
+
+    # 4. Run PyInstaller
     spec_file = "finovate_audit.spec"
-    if not os.path.exists(spec_file):
-        print(f"[ERROR] Spec file {spec_file} not found!")
-        sys.exit(1)
-        
-    cmd = ["pyinstaller", "--clean", "--noconfirm", spec_file]
+    cmd = [sys.executable, "-m", "PyInstaller", "--clean", "--noconfirm", spec_file]
     
     print(f"[BUILD] {' '.join(cmd)}")
-    print()
-    
     try:
         subprocess.check_call(cmd)
-        print()
-        print("=" * 60)
+        print("\n" + "=" * 60)
         print("[SUCCESS] Build Complete!")
-        print(f"[OUTPUT] dist/")
         print("=" * 60)
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Build Failed: {e}")
